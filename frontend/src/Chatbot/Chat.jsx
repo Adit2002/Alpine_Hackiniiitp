@@ -1,7 +1,10 @@
 import "./chat.css";
 import Navbar from "../Navbar/NavBar";
 import { useState } from "react";
+import { useLoaderData } from "react-router-dom";
+import { marked } from "marked";
 import axios from "axios";
+import BACKEND_URL from "../services/api";
 const waitingMessages = [
   "Hang tight! I'm fetching the perfect response for you.",
   "Just a moment while I gather some insights for you.",
@@ -20,19 +23,20 @@ const ChatBot = () => {
   let [data, setData] = useState({});
   let [count, setCount] = useState(0);
   let [loading, setLoading] = useState(false);
+  let [htmlResponse, setHtmlResponse] = useState("");
   let handlePrompt = async () => {
     try {
       setCount((p) => p + 1);
       setLoading((p) => !p);
       setData({ user: value, response: "..." });
-      let data = await axios.post(
-        "https://alpine-backend-hackiniiitp.vercel.app/api/chat/bot1",
-        {
-          prompt: value,
-        }
-      );
+      let data = await axios.post(`${BACKEND_URL}/api/chat/bot1`, {
+        prompt: value,
+      });
       setValue("");
       setData({ ...data.data });
+      const _gather = marked(data.data.response);
+      setHtmlResponse(_gather);
+
       setLoading((p) => !p);
     } catch (err) {
       console.log(err);
@@ -47,7 +51,6 @@ const ChatBot = () => {
   return (
     <>
       {" "}
-      <Navbar />
       <div className="app">
         <div className="content">
           <div className="conservation">
@@ -70,12 +73,12 @@ const ChatBot = () => {
               <div>
                 <p
                   style={{
-                    color: "rgb(69, 69, 22)",
                     marginTop: "10px",
-
+                    fontSize: "27px",
                     marginBottom: "10px",
-
+                    fontFamily: "Helvetica",
                     paddingLeft: "20px",
+                    color: "rgb(69, 69, 0)",
                   }}
                 >
                   {"👤 " + data.user}
@@ -93,7 +96,21 @@ const ChatBot = () => {
                       paddingLeft: "20px",
                     }}
                   >
-                    {"🧑‍⚕️ " + data.response}
+                    <p
+                      style={{
+                        color: "#0c0c0c",
+
+                        fontFamily: [
+                          "Trebuchet MS",
+                          "Lucida Sans Unicode",
+                          "Lucida Grande",
+                          "Lucida Sans",
+                          " Arial",
+                          "sans-serif",
+                        ],
+                      }}
+                      dangerouslySetInnerHTML={{ __html: htmlResponse }}
+                    />
                   </p>
                 )}
               </div>
@@ -110,7 +127,7 @@ const ChatBot = () => {
                     Math.floor(Math.random() * waitingMessages.length)
                   ]
                 }
-                readonly
+                readOnly
               ></input>
             ) : (
               <input
@@ -135,5 +152,30 @@ const ChatBot = () => {
     </>
   );
 };
+let RealChatBot = () => {
+  let role = useLoaderData();
+  if (role === "patient") {
+    return (
+      <>
+        <Navbar isPatient={true} isDoctor={false} isLogout={true} />
+        <ChatBot />
+      </>
+    );
+  } else if (role === "doctor") {
+    return (
+      <>
+        <Navbar isPatient={false} isDoctor={true} isLogout={true} />
+        <ChatBot />
+      </>
+    );
+  } else {
+    return (
+      <>
+        <Navbar isPatient={true} isDoctor={true} isLogout={false} />
+        <ChatBot />
+      </>
+    );
+  }
+};
 
-export default ChatBot;
+export default RealChatBot;

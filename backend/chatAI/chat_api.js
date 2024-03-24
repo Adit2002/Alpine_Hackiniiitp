@@ -25,7 +25,27 @@ const safetySettings = [
 ];
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
+const genAI2 = new GoogleGenerativeAI(process.env.API_KEY2);
+const ifFail = async (_input) => {
+  try {
+    console.log("Run function Failed");
+    const model = genAI2.getGenerativeModel({
+      model: process.env.MODEL_NAME2,
+      safetySettings,
+    });
 
+    const prompt = _input;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    return text;
+  } catch (err) {
+    console.log("Run function Backup also Failed");
+    console.log(err.message);
+    return "Something Went Wrong :(";
+  }
+};
 async function run(_input) {
   try {
     const model = genAI.getGenerativeModel({
@@ -40,7 +60,8 @@ async function run(_input) {
     const text = response.text();
     return text;
   } catch (err) {
-    return "Network Error 😢";
+    let final = await ifFail(_input);
+    return final;
   }
 }
 

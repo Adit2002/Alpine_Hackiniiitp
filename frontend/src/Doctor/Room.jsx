@@ -1,21 +1,77 @@
 import Navbar from "../Navbar/NavBar";
-import { useLoaderData, Link } from "react-router-dom";
+import { useLoaderData } from "react-router-dom";
 import { useParams } from "react-router-dom";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { GoogleLogin } from "@react-oauth/google";
 import button_logo from "/button_logo/button_logo.png";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import FallBackUi from "../Fallback/FallbackUi";
 import "./doctor.css";
-import { useEffect } from "react";
+import BACKEND_URL from "../services/api";
 import axios from "axios";
+import SuccessMessage from "../FlashyMessage/SuccessMessage";
+import DuplicateEmail from "../FlashyMessage/DuplicateEmail";
 function Room() {
   const role = useLoaderData();
   const navigate = useNavigate();
-  const [isPatient, setIsPatient] = useState(false);
-  const [isDoctor, setIsDoctor] = useState(false);
+  const [isPatient, setIsPatient] = useState(role === "patient" ? true : false);
+  const [isDoctor, setIsDoctor] = useState(role === "doctor" ? true : false);
   const [isLogout, setIsLogout] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEmailDuplicate, setIsEmailDuplicate] = useState(false);
+  const [showFlashy, setShowFlashy] = useState(false);
+  if (isLoading === true) {
+    return <FallBackUi />;
+  }
+  if (isLoading === false && isEmailDuplicate === true) {
+    return (
+      <>
+        {" "}
+        <Navbar isPatient={!isPatient} isDoctor={!isDoctor} />
+        <DuplicateEmail
+          message={"Only one doctor is allowed in the room at any given time."}
+        />
+        <div className="login_with_google">
+          <p style={{ margin: "0px", fontFamily: "Arial" }}>
+            Sign in as Patient
+          </p>
 
+          <img
+            src={button_logo}
+            height={"150px"}
+            width={"150px"}
+            alt="Google Login"
+          />
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              setIsLoading(true);
+              let data = await axios.post(
+                `${BACKEND_URL}/api/auth/generateTokenP`,
+                {
+                  token: credentialResponse.credential,
+                }
+              );
+              if (data.data.token === "tokenNotGranted") {
+                setIsEmailDuplicate(true);
+                setIsLoading(false);
+                return;
+              }
+              localStorage.setItem("token", data.data.token);
+              setIsPatient(true);
+              setIsLogout(true);
+              setIsLoading(false);
+              setIsEmailDuplicate(false);
+              setShowFlashy(true);
+            }}
+            onError={() => {
+              console.log("Login Failed");
+            }}
+          />
+        </div>
+      </>
+    );
+  }
   function randomID(len) {
     let result = "";
     if (result) return result;
@@ -48,28 +104,29 @@ function Room() {
       sharedLinks: [
         {
           name: "Copy Link",
-          url: `http://localhost:5173/doctor/schedule/${id}`,
+          url: `https://alpine-frontend-hackiniiitp.vercel.app/doctor/schedule/${roomID}`,
         },
       ],
       scenario: {
         mode: ZegoUIKitPrebuilt.OneONoneCall,
       },
       showScreenSharingButton: false,
+      onLeaveRoom: () => {
+        navigate("/");
+        // shoutout to the Aditya Sharma for building this 🙏
+      },
     });
   };
-
-  useEffect(() => {
-    if (role === "patient") {
-      navigate("/patient");
-    }
-  }, []);
+  // removing patient role because patient they are the only one who will be joining the room
 
   if (role === "noRole" && isPatient === false && isDoctor === false) {
     return (
       <>
         <Navbar isPatient={!isPatient} isDoctor={!isDoctor} />
         <div className="login_with_google">
-          <p style={{ margin: "0px" }}>Sign in as Doctor</p>
+          <p style={{ margin: "0px", fontFamily: "Arial" }}>
+            Sign in as Patient
+          </p>
 
           <img
             src={button_logo}
@@ -79,16 +136,24 @@ function Room() {
           />
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
+              setIsLoading(true);
               let data = await axios.post(
-                "https://alpine-backend-hackiniiitp.vercel.app/api/auth/generateTokenD",
+                `${BACKEND_URL}/api/auth/generateTokenP`,
                 {
                   token: credentialResponse.credential,
                 }
               );
+              if (data.data.token === "tokenNotGranted") {
+                setIsEmailDuplicate(true);
+                setIsLoading(false);
+                return;
+              }
               localStorage.setItem("token", data.data.token);
-
-              setIsDoctor(true);
+              setIsPatient(true);
               setIsLogout(true);
+              setIsLoading(false);
+              setIsEmailDuplicate(false);
+              setShowFlashy(true);
             }}
             onError={() => {
               console.log("Login Failed");
@@ -100,7 +165,10 @@ function Room() {
   }
   return (
     <>
-      <Navbar isDoctor={isDoctor} isLogout={true} />
+      <Navbar isPatient={isPatient} isDoctor={isDoctor} isLogout={true} />
+      {showFlashy && (
+        <SuccessMessage message={"You're Now Logged in as a Patient"} />
+      )}
       <div>
         <div ref={myMeeting} />
       </div>
